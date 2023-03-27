@@ -9,7 +9,9 @@ describe("Barcode", function () {
             let bar = await Barcode.deploy();
             await bar.deployed();
 
-            await bar.draw(31488755, [48], [48]);
+            let result = await bar.draw(31488755, "0", "0", "ffc0c0", 58, 2);
+
+            console.log(result);
 
         });
     })

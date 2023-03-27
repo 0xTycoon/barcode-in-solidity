@@ -129,30 +129,19 @@ contract Barcode {
 
     }
 
-    bytes constant header1 = '<svg id="mybarcode" width="';
-    bytes constant header2 = '" height="';
-    bytes constant header3 = '" x="';
-    bytes constant header4 = '" y="';
-    bytes constant header5 = '" viewBox="0 0 ';
-    bytes constant header6 = '" xmlns="http://www.w3.org/2000/svg" >';
-    //bytes constant header7 = '<rect x="0" y="0" width="292" height="58" style="fill:#dedede;"/>';
-    bytes constant start = '<g transform="translate(10, 10)" style="fill:#0;">';
-    bytes constant end = '</g></svg>';
-
-    uint256 constant private BAR_WIDTH = 2;
-
     function draw(
         uint256 _in,
-        bytes memory _x,
-        bytes memory _y) view external returns (bytes memory) {
+        string memory _x,
+        string memory _y,
+        string memory _color,
+        uint16 _height,
+        uint8 _barWidth) view external returns (string memory) {
         bytes memory digits = bytes(toString(_in));
         bytes memory out = "";
-
         out = abi.encodePacked(barMap["105"]); // charset-C
         if (digits.length % 2 == 1) {
             digits = abi.encodePacked("0", digits);
         }
-        //console.log(string(digits));
         uint256 pos;           // position when parsing digits
         uint256 n;             // value of character
         uint256 sum = 105;     // checksum, starting with set-C code, 105
@@ -181,32 +170,32 @@ contract Barcode {
             k := mload(add(b, 32))              // convert b to k (bytes32)
         }
         out = abi.encodePacked(out, barMap[k], stopCode);
-        for (i=0; i<out.length; i++) {
-            console.log(string(abi.encodePacked(out[i])));
-        }
-        return _render(out, _x, _y);
+        return string(_render(out, bytes(_x), bytes(_y), bytes(_color), _height, _barWidth));
     }
 
     function _render(
         bytes memory out,
         bytes memory _x,
-        bytes memory _y) public view returns (bytes memory) {
+        bytes memory _y,
+        bytes memory _color,
+        uint16 _height,
+        uint8 _barWidth
+) public view returns (bytes memory) {
+        require (_height > 19, "_height too small");
         DynamicBufferLib.DynamicBuffer memory result;
         uint256 pos = 0;
         uint256 i = 0;
         uint256 n = 0;
-        bytes memory width = bytes(toString((out.length * 2) + 24)); // 292
-        bytes memory height = bytes(toString(58));
-        bytes memory color = "c0c0c0";
-
+        bytes memory width = bytes(toString((out.length * _barWidth) + 24)); // auto-width
+        bytes memory height = bytes(toString(uint256(_height))); // 58
+        //bytes memory color = bytes()//"c0c0c0";
         result.append('<svg id="solbarcode" x="', _x, 'px" y="');
-
         result.append(_y, 'px" width="', width);
         result.append('px" height="', height,'px" viewBox="0 0 ');
         result.append(width,' ', height);
         result.append('" xmlns="http://www.w3.org/2000/svg" version="1.1"><rect x="0" y="0" width="');
         result.append(width,'" height="', height);
-        result.append('" style="fill:#',color,';"/> <g transform="translate(12, 10)" style="fill:#0;">');
+        result.append('" style="fill:#',_color,';"/> <g transform="translate(12, 10)" style="fill:#0;">');
         while (pos < out.length) {
             if (out[pos] == "1") {
                 i++;
@@ -215,9 +204,15 @@ contract Barcode {
                 }
             } else {
                 if (i>0) {
-                    // print out the rect
-                    result.append(' <rect x="', bytes(toString(pos * BAR_WIDTH - (i * BAR_WIDTH))),'" y="0" width="');
-                    result.append(bytes(toString(i*BAR_WIDTH)), '" height="38"/>', bytes(""));
+                    result.append(
+                        ' <rect x="',
+                        bytes(toString(pos * _barWidth - (i * _barWidth))),
+                        '" y="0" width="');
+                    result.append(
+                        bytes(toString(i*_barWidth)),
+                        '" height="',
+                        bytes(toString(_height-20)));
+                    result.append('"/>');
                     i=0;
                 }
                 n++;
@@ -225,11 +220,17 @@ contract Barcode {
             pos++;
         }
         if (i>0) {
-            result.append(' <rect x="', bytes(toString(pos * BAR_WIDTH - (i * BAR_WIDTH))),'" y="0" width="');
-            result.append(bytes(toString(i * BAR_WIDTH)), '" height="38"/>', bytes(""));
+            result.append(
+                ' <rect x="',
+                bytes(toString(pos * _barWidth - (i * _barWidth))),
+                '" y="0" width="');
+            result.append(
+                bytes(toString(i*_barWidth)),
+                '" height="',
+                bytes(toString(_height-20)));
+            result.append('"/>');
         }
         result.append('</g></svg>');
-        console.log(string(result.data));
         return (result.data);
     }
 
