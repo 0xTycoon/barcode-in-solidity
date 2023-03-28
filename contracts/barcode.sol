@@ -180,7 +180,7 @@ contract Barcode {
         bytes memory _color,
         uint16 _height,
         uint8 _barWidth
-) public view returns (bytes memory) {
+) public pure returns (bytes memory) {
         require (_height > 19, "_height too small");
         DynamicBufferLib.DynamicBuffer memory result;
         uint256 pos = 0;
