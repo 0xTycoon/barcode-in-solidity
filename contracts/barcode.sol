@@ -1,8 +1,20 @@
 // SPDX-License-Identifier: MIT
-
+// Author: tycoon.eth
 pragma solidity ^0.8.19;
 
 /***
+___.
+\_ |__ _____ _______
+ | __ \\__  \\_  __ \
+ | \_\ \/ __ \|  | \/
+ |___  (____  /__|
+     \/     \/
+                 .___
+  ____  ____   __| _/____
+_/ ___\/  _ \ / __ |/ __ \
+\  \__(  <_> ) /_/ \  ___/
+ \___  >____/\____ |\___  >
+     \/           \/    \/
 
 Generate barcodes SVGs on-chain.
 Limitations: Code-128 Character set C only.
@@ -10,7 +22,6 @@ Limitations: Code-128 Character set C only.
 
 **/
 
-import "hardhat/console.sol";
 
 contract Barcode {
     using DynamicBufferLib for DynamicBufferLib.DynamicBuffer;
@@ -129,6 +140,15 @@ contract Barcode {
 
     }
 
+    /**
+    * @dev draw returns the SVG string that renders a barcode
+    * @param _in the number to draw as a barcode
+    * @param _x x position of the SVG
+    * @param _y y position of the SVG
+    * @param _color a 3 byte hex code of the background color
+    * @param _height height in pixels, min 20
+    * @param _barWidth width of bars, recommended: 2
+    */
     function draw(
         uint256 _in,
         string memory _x,
@@ -137,58 +157,70 @@ contract Barcode {
         uint16 _height,
         uint8 _barWidth) view external returns (string memory) {
         bytes memory digits = bytes(toString(_in));
-        bytes memory out = "";
-        out = abi.encodePacked(barMap["105"]); // charset-C
+        bytes memory out =
+            abi.encodePacked(barMap["105"]);   // charset-C
         if (digits.length % 2 == 1) {
-            digits = abi.encodePacked("0", digits);
+            digits = abi.encodePacked(
+                "0", digits);                  // prepend 0 so that it's even
         }
-        uint256 pos;           // position when parsing digits
-        uint256 n;             // value of character
-        uint256 sum = 105;     // checksum, starting with set-C code, 105
-        uint256 i = 1;         // position, used for the checksum
-        bytes32 k;             // lookup key
-        bytes memory b = "00"; // buffer used to build the lookup-key
+        uint256 pos;                           // position when parsing digits
+        uint256 n;                             // value of character
+        uint256 sum = 105;                     // checksum, starting with set-C code, 105
+        uint256 i = 1;                         // position, used for the checksum
+        bytes32 k;                             // lookup key
+        bytes memory b = "00";                 // buffer used to build the lookup-key
         while (pos < digits.length) {
             b[0] = digits[pos];
             b[1] = digits[pos+1];
             assembly {
-                k := mload(add(b, 32))          // convert b to k (bytes32)
+                k := mload(add(b, 32))         // convert b to k (bytes32)
             }
-            out = abi.encodePacked(out, barMap[k]);
-            n = (uint8(digits[pos]) - 48) * 10; // convert to int, big
-            n += uint8(digits[pos+1]) - 48;     // convert to int, small
-            sum = sum + (n*i);                  // add to checksum
+            out = abi.encodePacked(
+                out, barMap[k]);
+            n = (uint8(digits[pos]) - 48) * 10;// convert to int, big
+            n += uint8(digits[pos+1]) - 48;    // convert to int, small
+            sum = sum + (n*i);                 // add to checksum
             pos+=2;
             i++;
         }
         sum = sum % 103; // checksum
         b = bytes(toString(sum));
         if (sum < 10) {
-            b = abi.encodePacked("0", b);       // pad with "0"
+            b = abi.encodePacked("0", b);      // pad with "0"
         }
         assembly {
-            k := mload(add(b, 32))              // convert b to k (bytes32)
+            k := mload(add(b, 32))             // convert b to k (bytes32)
         }
-        out = abi.encodePacked(out, barMap[k], stopCode);
-        return string(_render(out, bytes(_x), bytes(_y), bytes(_color), _height, _barWidth));
+        out = abi.encodePacked(
+            out, barMap[k], stopCode);
+        return string(_render(
+            out,
+            bytes(_x),
+            bytes(_y),
+            bytes(_color),
+            _height,
+            _barWidth)
+        );
     }
 
+    /**
+    * _render
+    */
     function _render(
-        bytes memory out,
+        bytes memory _in,
         bytes memory _x,
         bytes memory _y,
         bytes memory _color,
         uint16 _height,
         uint8 _barWidth
-) public pure returns (bytes memory) {
+) internal pure returns (bytes memory) {
         require (_height > 19, "_height too small");
         DynamicBufferLib.DynamicBuffer memory result;
         uint256 pos = 0;
         uint256 i = 0;
         uint256 n = 0;
-        bytes memory width = bytes(toString((out.length * _barWidth) + 24)); // auto-width
-        bytes memory height = bytes(toString(uint256(_height))); // 58
-        //bytes memory color = bytes()//"c0c0c0";
+        bytes memory width = bytes(toString((_in.length * _barWidth) + 24)); // auto-width
+        bytes memory height = bytes(toString(uint256(_height)));
         result.append('<svg id="solbarcode" x="', _x, 'px" y="');
         result.append(_y, 'px" width="', width);
         result.append('px" height="', height,'px" viewBox="0 0 ');
@@ -196,22 +228,22 @@ contract Barcode {
         result.append('" xmlns="http://www.w3.org/2000/svg" version="1.1"><rect x="0" y="0" width="');
         result.append(width,'" height="', height);
         result.append('" style="fill:#',_color,';"/> <g transform="translate(12, 10)" style="fill:#0;">');
-        while (pos < out.length) {
-            if (out[pos] == "1") {
-                i++;
+        while (pos < _in.length) {
+            if (_in[pos] == "1") {
+                i++;     // count the black bars
                 if (n > 0) {
                     n =0;
                 }
             } else {
-                if (i>0) {
+                if (i>0) { //
                     result.append(
                         ' <rect x="',
                         bytes(toString(pos * _barWidth - (i * _barWidth))),
                         '" y="0" width="');
                     result.append(
-                        bytes(toString(i*_barWidth)),
+                        bytes(toString(i * _barWidth)),
                         '" height="',
-                        bytes(toString(_height-20)));
+                        bytes(toString(_height - 20)));
                     result.append('"/>');
                     i=0;
                 }
@@ -225,9 +257,9 @@ contract Barcode {
                 bytes(toString(pos * _barWidth - (i * _barWidth))),
                 '" y="0" width="');
             result.append(
-                bytes(toString(i*_barWidth)),
+                bytes(toString(i * _barWidth)),
                 '" height="',
-                bytes(toString(_height-20)));
+                bytes(toString(_height - 20)));
             result.append('"/>');
         }
         result.append('</g></svg>');

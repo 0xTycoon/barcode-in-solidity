@@ -12,6 +12,6 @@ Limitations: Code-128 Character set C only.
 
 ## Deployment
 
-Ethereum Mainnet, contract's address: `0xto-do`
+Ethereum Mainnet, contract's address: `0x4872BC4a6B29E8141868C3Fe0d4aeE70E9eA6735`
 
-[Verified source](https://etherscan.io/address/0xto-do#code)
+[Verified source](https://etherscan.io/address/0x4872BC4a6B29E8141868C3Fe0d4aeE70E9eA6735)

@@ -13,6 +13,10 @@ describe("Barcode", function () {
 
             console.log(result);
 
+            let TestCode = await ethers.getContractFactory("TestCode");
+            let t = await TestCode.deploy(bar.address);
+            await t.deployed();
+
         });
     })
 
